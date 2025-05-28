@@ -19,9 +19,39 @@ configure_file(${CMAKE_SOURCE_DIR}/wordle_fillers.csv ${CMAKE_BINARY_DIR}/wordle
 # Executable target
 add_executable(wordle_bot
     main.cpp
-    solver.cpp
-    stats.cpp
+    src/solver.cpp
+    src/stats.cpp
 )
 
-# Include your own headers and Boost
+# Include headers and Boost
 target_include_directories(wordle_bot PRIVATE ${Boost_INCLUDE_DIRS} .)
+
+# Add ImGui sources
+set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/external/imgui")
+set(IMGUI_SOURCES
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+)
+
+add_library(imgui STATIC ${IMGUI_SOURCES})
+target_include_directories(imgui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends)
+
+set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/glfw" ${CMAKE_PREFIX_PATH})
+
+
+# Add GLFW and OpenGL dependencies
+find_package(glfw3 REQUIRED)
+find_package(OpenGL REQUIRED)
+
+target_link_libraries(imgui PRIVATE glfw OpenGL::GL)
+
+# Link imgui to your executable
+target_link_libraries(wordle_bot PRIVATE imgui glfw OpenGL::GL)
+target_include_directories(wordle_bot PRIVATE ${IMGUI_DIR} ${IMGUI_DIR}/backends)
+
+
+
