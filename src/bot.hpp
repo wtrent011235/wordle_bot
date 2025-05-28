@@ -189,6 +189,7 @@ struct Bot<true> : public BotBase {
         for (size_t threadID = 0; threadID < nThreads; ++threadID) threadPool[threadID].join();
 
         state = State::NOT_OVER;
+        suggestFlag = false;
     }
 
     OptimalMove suggest() {
@@ -303,6 +304,8 @@ struct Bot<true> : public BotBase {
 
 
 private:
+    bool suggestFlag = false;
+
     // Find entropy of a guess given guessIndex and targetIndices
     double findBaseEntropy(size_t guessIndex, size_t threadID) {
         util::formatGuard(validTargetIndices.size() > 2, "findEntropy called with {} remaining valid targets", validTargetIndices.size());
