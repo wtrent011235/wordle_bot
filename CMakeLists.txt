@@ -1,57 +1,53 @@
 cmake_minimum_required(VERSION 3.20)
 project(wordle_bot LANGUAGES CXX)
 
-# Use C++23
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Enable warnings (recommended)
-add_compile_options(-Wall -Wextra -Wpedantic)
+add_compile_options(
+  -O3
+  -march=native
+  -flto
+  -Wall -Wextra -Wpedantic -Werror
+)
 
-# Find Boost (for header-only use)
+add_link_options(
+  -flto
+)
+
+set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
+
+# Specify Boost path for Brew installations
+cmake_policy(SET CMP0144 NEW)
+set(BOOST_ROOT /opt/homebrew)
 find_package(Boost REQUIRED)
 
-# Copy data files into the build directory
 configure_file(${CMAKE_SOURCE_DIR}/wordle_targets.csv ${CMAKE_BINARY_DIR}/wordle_targets.csv COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/wordle_fillers.csv ${CMAKE_BINARY_DIR}/wordle_fillers.csv COPYONLY)
 
-# Executable target
-add_executable(wordle_bot
-    main.cpp
-    src/solver.cpp
-    src/stats.cpp
+# Core library — source files compiled once here only
+add_library(wordle_lib
+  ${SRC_DIR}/easyBot.cpp
+  ${SRC_DIR}/feedback.cpp
+  ${SRC_DIR}/hardBot.cpp
 )
 
-# Include headers and Boost
-target_include_directories(wordle_bot PRIVATE ${Boost_INCLUDE_DIRS} .)
-
-# Add ImGui sources
-set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/external/imgui")
-set(IMGUI_SOURCES
-    ${IMGUI_DIR}/imgui.cpp
-    ${IMGUI_DIR}/imgui_draw.cpp
-    ${IMGUI_DIR}/imgui_tables.cpp
-    ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+target_include_directories(wordle_lib PUBLIC
+  ${SRC_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${Boost_INCLUDE_DIRS}
 )
 
-add_library(imgui STATIC ${IMGUI_SOURCES})
-target_include_directories(imgui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends)
+add_executable(wordle_bot main.cpp)
+target_link_libraries(wordle_bot PRIVATE wordle_lib)
 
-set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/glfw" ${CMAKE_PREFIX_PATH})
+find_package(Catch2 3 REQUIRED)
 
+enable_testing()
+add_subdirectory(tests)
 
-# Add GLFW and OpenGL dependencies
-find_package(glfw3 REQUIRED)
-find_package(OpenGL REQUIRED)
-
-target_link_libraries(imgui PRIVATE glfw OpenGL::GL)
-
-# Link imgui to your executable
-target_link_libraries(wordle_bot PRIVATE imgui glfw OpenGL::GL)
-target_include_directories(wordle_bot PRIVATE ${IMGUI_DIR} ${IMGUI_DIR}/backends)
-
-
-
+option(BUILD_BENCHMARKS "Build benchmark targets" ON)
+if (BUILD_BENCHMARKS)
+    find_package(benchmark REQUIRED)
+    add_subdirectory(benchmark)
+endif()
