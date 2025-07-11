@@ -15,15 +15,15 @@ bot::Suggestion bot::HardBot::suggest() {
     if (!numAliveTargets) return {};
     if (numAliveTargets <= 2) return {static_cast<double>(numAliveTargets) - 1.0, vocab[aliveIndices.front()], aliveIndices.front(), true};
 
-    // Atomic Suggestion for final Entropy
+    // Atomic index for threads to find 2-depth entropy of top candidates
     std::atomic_size_t topCandidateIndex = 0;
 
     // Reset entropies for valid suggestions
     std::fill(entropies.begin(), entropies.end(), std::numeric_limits<double>::min());
 
+    // Initialize barrier func
     const size_t N = aliveIndices.size();
     const size_t threadsLaunched = std::min(N, maxThreads);
-
     std::barrier syncPoint(threadsLaunched, [this] noexcept {
         std::partial_sort_copy(
             aliveIndices.begin(), aliveIndices.end(),
@@ -32,6 +32,7 @@ bot::Suggestion bot::HardBot::suggest() {
         );
     });
 
+    // Initialize Worker func
     auto worker = [&](std::vector<WordCountT>::const_iterator firstPassGuessStart, std::vector<WordCountT>::const_iterator firstPassGuessStop) {
         // Step 1: Calculate entropy of first guess for all valid guesses
         BotBase::BinCounts binCounts{};
@@ -44,7 +45,7 @@ bot::Suggestion bot::HardBot::suggest() {
         // Step 2: One thread gets top candidates while others wait
         syncPoint.arrive_and_wait();
 
-        // Step 3: Take as many candidates as possible, calculate their 2-depth entropy, and add it to entropies
+        // Step 3: Take as many candidates as possible, calculate their 2-depth entropy, and update candidate entropy
         std::vector<std::vector<WordCountT>> targetBins;
         std::vector<std::vector<WordCountT>> fillerBins;
 
@@ -58,7 +59,7 @@ bot::Suggestion bot::HardBot::suggest() {
             fillerBins = getFillerIndexBins(candidateIndex, binCounts);
 
             for (size_t i = 0; i < wordle::feedback::NUM_FEEDBACKS; ++i) {
-                // Get weight of this bin (AKA, how probable we are to see a solution land in this bin compared to others)
+                // Get weight of this bin (AKA how probable we are to see a solution land in this bin compared to others)
                 const auto& targets = targetBins[i];
                 const auto& fillers = fillerBins[i];
                 const double weight = static_cast<double>(targets.size()) / static_cast<double>(numAliveTargets);
