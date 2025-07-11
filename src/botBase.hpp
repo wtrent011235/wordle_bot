@@ -30,6 +30,12 @@ namespace wordle::bot {
     protected:
         using BinCounts = std::array<WordCountT, wordle::feedback::NUM_FEEDBACKS>;
         using WordIndexBins = std::vector<std::vector<WordCountT>>;
+
+        struct GuessValidation {
+            size_t index;
+            bool isValid;
+        };
+        
         wordle::feedback::FeedbackMap fMap;
         wordle::vocab::Vocab vocab; 
         wordle::parallel::TaskQueue taskQueue;
