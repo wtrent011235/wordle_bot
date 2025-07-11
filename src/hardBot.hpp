@@ -14,11 +14,6 @@ class HardBot : private BotBase {
     const size_t maxThreads;
     std::vector<WordCountT>::const_iterator fillerStart;
 
-    struct GuessValidation {
-        size_t index;
-        bool isValid;
-    };
-
     size_t aliveTargets() const noexcept {
         return std::distance(aliveIndices.cbegin(), fillerStart);
     }
@@ -52,7 +47,7 @@ class HardBot : private BotBase {
 
         // Step 3: Add words in their respective bin
         for (auto it = wordIndexStart; it != wordIndexStop; ++it) {
-            size_t wordIndex = *it;
+            WordCountT wordIndex = *it;
             size_t fbIndex = candidateSlice[wordIndex];
             output[fbIndex].push_back(wordIndex);
         }
@@ -68,7 +63,7 @@ class HardBot : private BotBase {
         return __getCandidateBin<false>(candidateIndex, binCounts);
     }
 
-    GuessValidation validateGuess(std::string_view guess) {
+    BotBase::GuessValidation validateGuess(std::string_view guess) {
         GuessValidation gv{0, false};
         if (!util::isValidWord(guess)) return gv;
 
