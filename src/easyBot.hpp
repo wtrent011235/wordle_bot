@@ -10,17 +10,36 @@ class EasyBot : private BotBase {
     friend struct EasyBotInspector;
 
     std::vector<double> entropies;
-    std::vector<WordCountT> aliveTargets;
+    std::vector<WordCountT> aliveTargets{};
     std::vector<WordCountT> topCandidates;
     const size_t beamCandidates;
     const size_t maxThreads;
 
-    struct GuessValidation {
-        size_t index;
-        bool isValid;
-    };
+    BotBase::WordIndexBins getCandidateTargets(size_t candidateIndex, BotBase::BinCounts& binCounts) {
+        binCounts.fill(0);
+        const auto& candidateSlice = fMap[candidateIndex];
 
-    GuessValidation validateGuess(std::string_view guess) {
+        // Step 1: Count number of targets in corresponding feedback bin
+        for (size_t solutionIndex : aliveTargets) {
+            size_t fbIndex = candidateSlice[solutionIndex];
+            ++binCounts[fbIndex];
+        }
+
+        // Step 2: Initialize output and reserve correct size for bins
+        BotBase::WordIndexBins output(wordle::feedback::NUM_FEEDBACKS);
+        for (size_t i = 0; i < wordle::feedback::NUM_FEEDBACKS; ++i) {
+            output[i].reserve(binCounts[i]);
+        }
+
+        // Step 3: Push indices into targets
+        for (WordCountT solutionIndex : aliveTargets) {
+            size_t fbIndex = candidateSlice[solutionIndex];
+            output[fbIndex].push_back(solutionIndex);
+        }
+        return output;
+    }
+
+    BotBase::GuessValidation validateGuess(std::string_view guess) {
         GuessValidation gv{0, false};
         if (!util::isValidWord(guess)) return gv;
 
@@ -60,6 +79,24 @@ class EasyBot : private BotBase {
         taskQueue.push(search, false);
         taskQueue.wait();
         return gv;
+    }
+
+    template <concepts::WordIndexIterator TargetIterator>
+    double binEntropy(TargetIterator tStart, TargetIterator tEnd, BotBase::BinCounts& binCounts) {
+        const size_t N = std::distance(tStart, tEnd);
+        if (N <= 2) {
+            return std::max(0.0, static_cast<double>(N) - 1.0);
+        }
+
+        // Resulting max entropy
+        double bestEntropy = std::numeric_limits<double>::min();
+
+        // Find entropy of each possible guess, compare with best
+        for (size_t guessIndex = 0; guessIndex < wordle::config::NUM_WORDS; ++guessIndex) {
+            double entropy = BotBase::baseEntropy(guessIndex, tStart, tEnd, binCounts);
+            bestEntropy = std::max(bestEntropy, entropy);
+        }
+        return bestEntropy;
     }
 
 public:
